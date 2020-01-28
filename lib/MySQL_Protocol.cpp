@@ -1952,7 +1952,7 @@ __exit_do_auth:
 	assert(sess->client_myds);
 	myconn=sess->client_myds->myconn;
 	assert(myconn);
-	myconn->set_charset(charset, NAMES);
+	myconn->set_charset(charset, CONNECT_START);
 	// enable compression
 	if (capabilities & CLIENT_COMPRESS) {
 		if (myconn->options.server_capabilities & CLIENT_COMPRESS) {

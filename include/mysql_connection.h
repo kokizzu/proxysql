@@ -32,7 +32,8 @@ public:
 enum charset_action {
 	UNKNOWN,
 	NAMES,
-	CHARSET
+	CHARSET,
+	CONNECT_START
 };
 
 class MySQL_Connection_userinfo {

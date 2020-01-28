@@ -34,7 +34,6 @@ MySQL_Variables::MySQL_Variables(MySQL_Session* _session) {
 			updaters[i] = new Names_Updater();
 			break;
 		default:
-			proxy_info("Skip variable without an action\n");
 			updaters[i] = NULL;
 		}
 	}
@@ -163,8 +162,6 @@ bool MySQL_Variables::verify_variable(int idx) {
 	return ret;
 }
 
-
-
 /* 
  * Updaters for different variables
  */
@@ -194,34 +191,47 @@ bool Generic_Updater::update_server_variable(MySQL_Session* session, int idx, in
 }
 
 bool Names_Updater::verify_variables(MySQL_Session* session, int idx) {
-	if (strcmp(session->client_myds->myconn->variables[SQL_CHARACTER_ACTION].value, "1"))
-		return false;
+	if (!strcmp(session->client_myds->myconn->variables[SQL_CHARACTER_ACTION].value, "1") ||
+			!strcmp(session->client_myds->myconn->variables[SQL_CHARACTER_ACTION].value, "3")) {
 
-	auto ret = session->mysql_variables->verify_generic_variable(
-			&session->mybe->server_myds->myconn->variables[SQL_CHARACTER_SET].hash,
-			&session->mybe->server_myds->myconn->variables[SQL_CHARACTER_SET].value,
-			mysql_thread___default_variables[SQL_CHARACTER_SET],
-			&session->client_myds->myconn->variables[SQL_CHARACTER_SET].hash,
-			session->client_myds->myconn->variables[SQL_CHARACTER_SET].value,
-			mysql_tracked_variables[idx].status
-			);
+		auto ret = session->mysql_variables->verify_generic_variable(
+				&session->mybe->server_myds->myconn->variables[SQL_CHARACTER_SET].hash,
+				&session->mybe->server_myds->myconn->variables[SQL_CHARACTER_SET].value,
+				mysql_thread___default_variables[SQL_CHARACTER_SET],
+				&session->client_myds->myconn->variables[SQL_CHARACTER_SET].hash,
+				session->client_myds->myconn->variables[SQL_CHARACTER_SET].value,
+				mysql_tracked_variables[idx].status
+				);
 
-	if (ret) {
-		const MARIADB_CHARSET_INFO *ci = NULL;
-		ci = proxysql_find_charset_nr(atoi(session->mysql_variables->server_get_value(SQL_CHARACTER_SET)));
-		session->mysql_variables->client_set_value(SQL_CHARACTER_SET_RESULTS, ci->csname);
+		if (ret) {
+			if (!strcmp(session->client_myds->myconn->variables[SQL_CHARACTER_ACTION].value, "1")) {
+				auto should_update_results = false;
+				auto server = session->mybe->server_myds->myconn->variables[SQL_CHARACTER_SET_RESULTS].value;
+				auto client = session->client_myds->myconn->variables[SQL_CHARACTER_SET_RESULTS].value;
+
+				if (server && client && !strcmp(server, client))
+					should_update_results = true;
+
+				if (should_update_results) {
+					const MARIADB_CHARSET_INFO *ci = NULL;
+					ci = proxysql_find_charset_nr(atoi(session->mysql_variables->server_get_value(SQL_CHARACTER_SET)));
+					session->mysql_variables->client_set_value(SQL_CHARACTER_SET_RESULTS, ci->csname);
+				}
+			}
+			return ret;
+		}
+
+		ret = session->mysql_variables->verify_generic_variable(
+				&session->mybe->server_myds->myconn->variables[SQL_CHARACTER_ACTION].hash,
+				&session->mybe->server_myds->myconn->variables[SQL_CHARACTER_ACTION].value,
+				mysql_thread___default_variables[SQL_CHARACTER_ACTION],
+				&session->client_myds->myconn->variables[SQL_CHARACTER_ACTION].hash,
+				session->client_myds->myconn->variables[SQL_CHARACTER_ACTION].value,
+				mysql_tracked_variables[idx].status
+				);
 		return ret;
 	}
-
-	ret = session->mysql_variables->verify_generic_variable(
-			&session->mybe->server_myds->myconn->variables[SQL_CHARACTER_ACTION].hash,
-			&session->mybe->server_myds->myconn->variables[SQL_CHARACTER_ACTION].value,
-			mysql_thread___default_variables[SQL_CHARACTER_ACTION],
-			&session->client_myds->myconn->variables[SQL_CHARACTER_ACTION].hash,
-			session->client_myds->myconn->variables[SQL_CHARACTER_ACTION].value,
-			mysql_tracked_variables[idx].status
-			);
-	return ret;
+	return false;
 }
 
 bool Names_Updater::update_server_variable(MySQL_Session* session, int idx, int &_rc) {

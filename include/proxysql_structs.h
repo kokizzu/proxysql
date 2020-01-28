@@ -147,6 +147,9 @@ enum MySQL_DS_type {
 
 
 enum variable_name {
+	SQL_CHARACTER_SET,
+	SQL_CHARACTER_ACTION,
+	SQL_SET_NAMES,
 	SQL_SAFE_UPDATES,
 	SQL_SELECT_LIMIT,
 	SQL_SQL_MODE,
@@ -159,9 +162,6 @@ enum variable_name {
 	SQL_COLLATION_CONNECTION,
 	SQL_NET_WRITE_TIMEOUT,
 	SQL_MAX_JOIN_SIZE,
-	SQL_CHARACTER_SET,
-	SQL_CHARACTER_ACTION,
-	SQL_SET_NAMES,
 	SQL_NAME_LAST
 };
 
@@ -977,6 +977,9 @@ extern __thread unsigned int g_seed;
 // field_7: variable name as displayed in admin , WITHOUT "default_"
 // field_8: default value
 mysql_variable_st mysql_tracked_variables[] {
+    { SQL_CHARACTER_SET, SETTING_CHARSET,                       false, true, false, (char *)"CHARSET", (char *)"CHARSET", (char *)"DEFAULT" } ,
+    { SQL_CHARACTER_ACTION, NONE,		                        false, false, false, (char *)"action", (char *)"action", (char *)"1" } ,
+    { SQL_SET_NAMES, SETTING_SET_NAMES,	                        false, false, false, (char *)"names", (char *)"names", (char *)"DEFAULT" } ,
 	{ SQL_SAFE_UPDATES, SETTING_SQL_SAFE_UPDATES ,              true,  false, false, (char *)"sql_safe_updates",  (char *)"sql_safe_updates", (char *)"OFF" } ,
     { SQL_SELECT_LIMIT, SETTING_SQL_SELECT_LIMIT ,              false,  false, false, (char *)"sql_select_limit", (char *)"sql_select_limit", (char *)"DEFAULT" } ,
 	{ SQL_SQL_MODE, SETTING_SQL_MODE ,                          true, false, false, (char *)"sql_mode" , (char *)"sql_mode" , (char *)"" } ,
@@ -989,9 +992,6 @@ mysql_variable_st mysql_tracked_variables[] {
     { SQL_COLLATION_CONNECTION, SETTING_COLLATION_CONNECTION,   true,  false, false, (char *)"COLLATION_CONNECTION", (char *)"collation_connection", (char *)"" } ,
     { SQL_NET_WRITE_TIMEOUT, SETTING_NET_WRITE_TIMEOUT,         false, false, false, (char *)"NET_WRITE_TIMEOUT", (char *)"net_write_timeout", (char *)"60" } ,
     { SQL_MAX_JOIN_SIZE, SETTING_MAX_JOIN_SIZE,                 false, false, false, (char *)"MAX_JOIN_SIZE", (char *)"max_join_size", (char *)"18446744073709551615" } ,
-    { SQL_CHARACTER_SET, SETTING_CHARSET,                       false, true, false, (char *)"CHARSET", (char *)"CHARSET", (char *)"DEFAULT" } ,
-    { SQL_CHARACTER_ACTION, NONE,		                        false, false, false, (char *)"action", (char *)"action", (char *)"1" } ,
-    { SQL_SET_NAMES, SETTING_SET_NAMES,	                        false, false, false, (char *)"names", (char *)"names", (char *)"DEFAULT" } ,
 };
 #else
 extern mysql_variable_st mysql_tracked_variables[];

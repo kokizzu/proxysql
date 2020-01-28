@@ -2583,61 +2583,58 @@ bool MySQL_Session::handler_again___status_CHANGING_CHARSET(int *_rc) {
 
 	myds->DSS=STATE_MARIADB_QUERY;
 	enum session_status st=status;
-	auto  action = atoi(mysql_variables->client_get_value(SQL_CHARACTER_ACTION));
-	if (action == NAMES) {
-		if (myds->mypolls==NULL) {
-			thread->mypolls.add(POLLIN|POLLOUT, mybe->server_myds->fd, mybe->server_myds, thread->curtime);
-		}
-		int rc=myconn->async_set_names(myds->revents, atoi(mysql_variables->client_get_value(SQL_CHARACTER_SET)));
-		if (rc==0) {
-			__sync_fetch_and_add(&MyHGM->status.backend_set_names, 1);
-			myds->DSS = STATE_MARIADB_GENERIC;
-			st=previous_status.top();
-			previous_status.pop();
-			NEXT_IMMEDIATE_NEW(st);
-		} else {
-			if (rc==-1) {
-				// the command failed
-				int myerr=mysql_errno(myconn->mysql);
-				if (myerr >= 2000) {
-					if (myerr == 2019) {
-						proxy_error("Client trying to set a charset/collation (%u) not supported by backend (%s:%d). Changing it to %u\n", mysql_variables->client_get_value(SQL_CHARACTER_SET), myconn->parent->address, myconn->parent->port, mysql_thread___default_charset);
-						ss.clear();
-						ss << mysql_thread___default_charset;
-						mysql_variables->client_set_value(SQL_CHARACTER_SET, ss.str());
-					}
-					bool retry_conn=false;
-					// client error, serious
-					proxy_error("Detected a broken connection during SET NAMES on %s , %d : %d, %s\n", myconn->parent->address, myconn->parent->port, myerr, mysql_error(myconn->mysql));
-					if ((myds->myconn->reusable==true) && myds->myconn->IsActiveTransaction()==false && myds->myconn->MultiplexDisabled()==false) {
-						retry_conn=true;
-					}
-					myds->destroy_MySQL_Connection_From_Pool(false);
-					myds->fd=0;
-					if (retry_conn) {
-						myds->DSS=STATE_NOT_INITIALIZED;
-						//previous_status.push(PROCESSING_QUERY);
-						NEXT_IMMEDIATE_NEW(CONNECTING_SERVER);
-					}
-					*_rc=-1;
-					return false;
-				} else {
-					proxy_warning("Error during SET NAMES: %d, %s\n", myerr, mysql_error(myconn->mysql));
-					// we won't go back to PROCESSING_QUERY
-					st=previous_status.top();
-					previous_status.pop();
-					char sqlstate[10];
-					sprintf(sqlstate,"%s",mysql_sqlstate(myconn->mysql));
-					client_myds->myprot.generate_pkt_ERR(true,NULL,NULL,1,mysql_errno(myconn->mysql),sqlstate,mysql_error(myconn->mysql));
-					myds->destroy_MySQL_Connection_From_Pool(true);
-					myds->fd=0;
-					status=WAITING_CLIENT_DATA;
-					client_myds->DSS=STATE_SLEEP;
-					RequestEnd(myds);
+	if (myds->mypolls==NULL) {
+		thread->mypolls.add(POLLIN|POLLOUT, mybe->server_myds->fd, mybe->server_myds, thread->curtime);
+	}
+	int rc=myconn->async_set_names(myds->revents, atoi(mysql_variables->client_get_value(SQL_CHARACTER_SET)));
+	if (rc==0) {
+		__sync_fetch_and_add(&MyHGM->status.backend_set_names, 1);
+		myds->DSS = STATE_MARIADB_GENERIC;
+		st=previous_status.top();
+		previous_status.pop();
+		NEXT_IMMEDIATE_NEW(st);
+	} else {
+		if (rc==-1) {
+			// the command failed
+			int myerr=mysql_errno(myconn->mysql);
+			if (myerr >= 2000) {
+				if (myerr == 2019) {
+					proxy_error("Client trying to set a charset/collation (%u) not supported by backend (%s:%d). Changing it to %u\n", mysql_variables->client_get_value(SQL_CHARACTER_SET), myconn->parent->address, myconn->parent->port, mysql_thread___default_charset);
+					ss.clear();
+					ss << mysql_thread___default_charset;
+					mysql_variables->client_set_value(SQL_CHARACTER_SET, ss.str());
 				}
+				bool retry_conn=false;
+				// client error, serious
+				proxy_error("Detected a broken connection during SET NAMES on %s , %d : %d, %s\n", myconn->parent->address, myconn->parent->port, myerr, mysql_error(myconn->mysql));
+				if ((myds->myconn->reusable==true) && myds->myconn->IsActiveTransaction()==false && myds->myconn->MultiplexDisabled()==false) {
+					retry_conn=true;
+				}
+				myds->destroy_MySQL_Connection_From_Pool(false);
+				myds->fd=0;
+				if (retry_conn) {
+					myds->DSS=STATE_NOT_INITIALIZED;
+					//previous_status.push(PROCESSING_QUERY);
+					NEXT_IMMEDIATE_NEW(CONNECTING_SERVER);
+				}
+				*_rc=-1;
+				return false;
 			} else {
-				// rc==1 , nothing to do for now
+				proxy_warning("Error during SET NAMES: %d, %s\n", myerr, mysql_error(myconn->mysql));
+				// we won't go back to PROCESSING_QUERY
+				st=previous_status.top();
+				previous_status.pop();
+				char sqlstate[10];
+				sprintf(sqlstate,"%s",mysql_sqlstate(myconn->mysql));
+				client_myds->myprot.generate_pkt_ERR(true,NULL,NULL,1,mysql_errno(myconn->mysql),sqlstate,mysql_error(myconn->mysql));
+				myds->destroy_MySQL_Connection_From_Pool(true);
+				myds->fd=0;
+				status=WAITING_CLIENT_DATA;
+				client_myds->DSS=STATE_SLEEP;
+				RequestEnd(myds);
 			}
+		} else {
+			// rc==1 , nothing to do for now
 		}
 	}
 	return false;
