@@ -70,6 +70,17 @@ MARIADB_CHARSET_INFO * proxysql_find_charset_collate_names(const char *csname, c
 	return NULL;
 }
 
+MARIADB_CHARSET_INFO * proxysql_find_charset_collate(const char *collatename) {
+	MARIADB_CHARSET_INFO *c = (MARIADB_CHARSET_INFO *)mariadb_compiled_charsets;
+	do {
+		if (!strcasecmp(c->name, collatename)) {
+			return c;
+		}
+		++c;
+	} while (c[0].nr != 0);
+	return NULL;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -3274,6 +3285,19 @@ MySQL_Session * MySQL_Thread::create_new_session_and_client_data_stream(int _fd)
 			} else {
 				proxy_error("Cannot find character set for name [%s]. Configuration error. Check [%s] global variable. Using character set 33.\n", 
 						mysql_thread___default_variables[SQL_CHARACTER_SET_RESULTS], mysql_tracked_variables[SQL_CHARACTER_SET_RESULTS].internal_variable_name);
+			}
+			std::stringstream ss;
+			ss << nr;
+			sess->mysql_variables->client_set_value(i, ss.str());
+		} else if (i == SQL_COLLATION_CONNECTION) {
+			const MARIADB_CHARSET_INFO *ci = NULL;
+			int nr = 33; // if configuration has an error then use utf8_general_ci
+			ci = proxysql_find_charset_collate(mysql_thread___default_variables[i]);
+			if (ci) {
+				nr = ci->nr;
+			} else {
+				proxy_error("Cannot find character set for name [%s]. Configuration error. Check [%s] global variable. Using character set 33.\n", 
+						mysql_thread___default_variables[SQL_COLLATION_CONNECTION], mysql_tracked_variables[SQL_COLLATION_CONNECTION].internal_variable_name);
 			}
 			std::stringstream ss;
 			ss << nr;

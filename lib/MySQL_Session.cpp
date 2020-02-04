@@ -59,6 +59,7 @@ static inline char is_normal_char(char c) {
 extern const MARIADB_CHARSET_INFO * proxysql_find_charset_name(const char * const name);
 extern MARIADB_CHARSET_INFO * proxysql_find_charset_collate_names(const char *csname, const char *collatename);
 extern const MARIADB_CHARSET_INFO * proxysql_find_charset_nr(unsigned int nr);
+extern MARIADB_CHARSET_INFO * proxysql_find_charset_collate(const char *collatename);
 
 extern MySQL_Authentication *GloMyAuth;
 extern MySQL_LDAP_Authentication *GloMyLdapAuth;
@@ -5222,11 +5223,21 @@ bool MySQL_Session::handler___status_WAITING_CLIENT_DATA___STATE_SLEEP___MYSQL_C
 								return false;
 							}
 							if (mysql_variables->client_get_hash(idx) != var_value_int) {
+								proxy_warning("TRACE : var %s value %s\n", var.c_str(), value1.c_str());
 								const MARIADB_CHARSET_INFO *ci = NULL;
-								ci = proxysql_find_charset_name(value1.c_str());
+								unsigned int nr = 33;
+								if (var == "character_set_results")
+									ci = proxysql_find_charset_name(value1.c_str());
+								else if (var == "collation_connection")
+									ci = proxysql_find_charset_collate(value1.c_str());
+
+								if (ci)
+									nr = ci->nr;
+								else
+									proxy_error("Wrong collation/charset name [%s]. Using collation 33.\n", value1.c_str());
 
 								std::stringstream ss;
-								ss << ci->nr;
+								ss << nr;
 								mysql_variables->client_set_value(idx, ss.str().c_str());
 
 								proxy_debug(PROXY_DEBUG_MYSQL_COM, 5, "Changing connection %s to %s\n", var.c_str(), value1.c_str());

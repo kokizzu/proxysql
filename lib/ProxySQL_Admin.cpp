@@ -5369,7 +5369,6 @@ void ProxySQL_Admin::flush_sqliteserver_variables___runtime_to_database(SQLite3D
 	GloSQLite3Server->wrlock();
 	char **varnames=GloSQLite3Server->get_variables_list();
 	for (int i=0; varnames[i]; i++) {
-		proxy_warning("TRACE : var %s\n", varnames[i]);
 		char *val=GloSQLite3Server->get_variable(varnames[i]);
 		l+=( varnames[i] ? strlen(varnames[i]) : 6);
 		l+=( val ? strlen(val) : 6);

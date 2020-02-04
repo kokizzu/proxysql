@@ -17,8 +17,12 @@ void Variable::fill_server_internal_session(json &j, int conn_num, int idx) {
 		const MARIADB_CHARSET_INFO *ci = NULL;
 		ci = proxysql_find_charset_nr(atoi(value));
 
-		j["backends"][conn_num]["conn"][mysql_tracked_variables[idx].internal_variable_name] = std::string(ci->csname?ci->csname:"");
+		j["backends"][conn_num]["conn"][mysql_tracked_variables[idx].internal_variable_name] = std::string((ci && ci->csname)?ci->csname:"");
+	} else if (idx == SQL_COLLATION_CONNECTION) {
+		const MARIADB_CHARSET_INFO *ci = NULL;
+		ci = proxysql_find_charset_nr(atoi(value));
 
+		j["backends"][conn_num]["conn"][mysql_tracked_variables[idx].internal_variable_name] = std::string((ci && ci->name)?ci->name:"");
 	} else {
 		j["backends"][conn_num]["conn"][mysql_tracked_variables[idx].internal_variable_name] = std::string(value?value:"");
 	}
@@ -28,8 +32,13 @@ void Variable::fill_client_internal_session(json &j, int idx) {
 	if (idx == SQL_CHARACTER_SET_RESULTS) {
 		const MARIADB_CHARSET_INFO *ci = NULL;
 		ci = proxysql_find_charset_nr(atoi(value));
-		j["conn"][mysql_tracked_variables[idx].internal_variable_name] = ci->csname?ci->csname:"";
+		j["conn"][mysql_tracked_variables[idx].internal_variable_name] = (ci && ci->csname)?ci->csname:"";
 
+	} else if (idx == SQL_COLLATION_CONNECTION) {
+		const MARIADB_CHARSET_INFO *ci = NULL;
+		ci = proxysql_find_charset_nr(atoi(value));
+
+		j["conn"][mysql_tracked_variables[idx].internal_variable_name] = (ci && ci->name)?ci->name:"";
 	} else {
 		j["conn"][mysql_tracked_variables[idx].internal_variable_name] = value?value:"";
 	}
