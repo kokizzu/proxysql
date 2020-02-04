@@ -10,14 +10,29 @@
 #include "MySQL_Variables.h"
 
 extern const MARIADB_CHARSET_INFO * proxysql_find_charset_nr(unsigned int nr);
+MARIADB_CHARSET_INFO * proxysql_find_charset_name(const char *name);
 
 void Variable::fill_server_internal_session(json &j, int conn_num, int idx) {
-	j["backends"][conn_num]["conn"][mysql_tracked_variables[idx].internal_variable_name] = std::string(value?value:"");
+	if (idx == SQL_CHARACTER_SET_RESULTS) {
+		const MARIADB_CHARSET_INFO *ci = NULL;
+		ci = proxysql_find_charset_nr(atoi(value));
+
+		j["backends"][conn_num]["conn"][mysql_tracked_variables[idx].internal_variable_name] = std::string(ci->csname?ci->csname:"");
+
+	} else {
+		j["backends"][conn_num]["conn"][mysql_tracked_variables[idx].internal_variable_name] = std::string(value?value:"");
+	}
 }
 
 void Variable::fill_client_internal_session(json &j, int idx) {
+	if (idx == SQL_CHARACTER_SET_RESULTS) {
+		const MARIADB_CHARSET_INFO *ci = NULL;
+		ci = proxysql_find_charset_nr(atoi(value));
+		j["conn"][mysql_tracked_variables[idx].internal_variable_name] = ci->csname?ci->csname:"";
 
-	j["conn"][mysql_tracked_variables[idx].internal_variable_name] = value?value:"";
+	} else {
+		j["conn"][mysql_tracked_variables[idx].internal_variable_name] = value?value:"";
+	}
 }
 
 #define PROXYSQL_USE_RESULT
@@ -530,13 +545,13 @@ void MySQL_Connection::connect_start() {
 	}
 	unsigned int timeout= 1;
 	mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT, (void *)&timeout);
-	const MARIADB_CHARSET_INFO * c = proxysql_find_charset_nr(mysql_thread___default_charset);
-	if (!c) {
-		proxy_error("Not existing charset number %u\n", mysql_thread___default_charset);
-		assert(0);
-	}
-	set_charset(c->nr, CONNECT_START);
-	mysql_options(mysql, MYSQL_SET_CHARSET_NAME, c->csname);
+	//const MARIADB_CHARSET_INFO * c = proxysql_find_charset_name(mysql_thread___default_variables[SQL_CHARACTER_SET]);
+	//if (!c) {
+	//	proxy_error("Not existing charset number %u\n", mysql_thread___default_variables[SQL_CHARACTER_SET]);
+	//	assert(0);
+	//}
+	//set_charset(c->nr, CONNECT_START);
+	//mysql_options(mysql, MYSQL_SET_CHARSET_NAME, c->csname);
 	unsigned long client_flags = 0;
 	//if (mysql_thread___client_found_rows)
 	//	client_flags += CLIENT_FOUND_ROWS;
@@ -1708,7 +1723,7 @@ int MySQL_Connection::async_set_names(short event, unsigned int c) {
 			return -1;
 			break;
 		case ASYNC_IDLE:
-			set_charset(c, CONNECT_START);
+			//set_charset(c, CONNECT_START);
 			async_state_machine=ASYNC_SET_NAMES_START;
 		default:
 			handler(event);

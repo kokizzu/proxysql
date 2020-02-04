@@ -6,6 +6,7 @@
 #include "SpookyV2.h"
 
 extern const MARIADB_CHARSET_INFO * proxysql_find_charset_nr(unsigned int nr);
+extern MARIADB_CHARSET_INFO * proxysql_find_charset_name(const char *name);
 
 MySQL_Variables::MySQL_Variables(MySQL_Session* _session) {
 	assert(_session);
@@ -186,7 +187,15 @@ bool Generic_Updater::update_server_variable(MySQL_Session* session, int idx, in
 	if (mysql_tracked_variables[idx].quote) no_quote = false;
 	bool st = mysql_tracked_variables[idx].set_transaction;
 	const char * set_var_name = mysql_tracked_variables[idx].set_variable_name;
-	auto ret = session->handler_again___status_SETTING_GENERIC_VARIABLE(&_rc, set_var_name, session->mysql_variables->server_get_value(idx), no_quote, st);
+	bool ret = false;
+	if (idx==SQL_CHARACTER_SET_RESULTS) {
+		const MARIADB_CHARSET_INFO *ci = NULL;
+		ci = proxysql_find_charset_nr(atoi(session->mysql_variables->client_get_value(SQL_CHARACTER_SET_RESULTS)));
+
+		ret = session->handler_again___status_SETTING_GENERIC_VARIABLE(&_rc, set_var_name, ci->csname, no_quote, st);
+	} else {
+		ret = session->handler_again___status_SETTING_GENERIC_VARIABLE(&_rc, set_var_name, session->mysql_variables->server_get_value(idx), no_quote, st);
+	}
 	return ret;
 }
 
@@ -213,9 +222,7 @@ bool Names_Updater::verify_variables(MySQL_Session* session, int idx) {
 					should_update_results = true;
 
 				if (should_update_results) {
-					const MARIADB_CHARSET_INFO *ci = NULL;
-					ci = proxysql_find_charset_nr(atoi(session->mysql_variables->server_get_value(SQL_CHARACTER_SET)));
-					session->mysql_variables->client_set_value(SQL_CHARACTER_SET_RESULTS, ci->csname);
+					session->mysql_variables->client_set_value(SQL_CHARACTER_SET_RESULTS, session->mysql_variables->server_get_value(SQL_CHARACTER_SET));
 				}
 			}
 			return ret;
@@ -254,8 +261,7 @@ bool Charset_Updater::verify_variables(MySQL_Session* session, int idx) {
 
 	if (ret) {
 		const MARIADB_CHARSET_INFO *ci = NULL;
-		ci = proxysql_find_charset_nr(atoi(session->mysql_variables->server_get_value(SQL_CHARACTER_SET)));
-		session->mysql_variables->client_set_value(SQL_CHARACTER_SET_RESULTS, ci->csname);
+		session->mysql_variables->client_set_value(SQL_CHARACTER_SET_RESULTS, session->mysql_variables->server_get_value(SQL_CHARACTER_SET));
 		return ret;
 	}
 

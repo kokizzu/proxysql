@@ -2541,6 +2541,7 @@ bool MySQL_Session::handler_again___status_CHANGING_CHARSET(int *_rc) {
 	const MARIADB_CHARSET_INFO *ci = NULL;
 	const char* replace_collation = "";
 	const char* not_supported_collation = "";
+	int replace_collation_nr = 33; // if configuration has an error then use utf8_genral_ci
 	std::stringstream ss;
 
 	/* Validate that server can support client's charset */
@@ -2559,20 +2560,22 @@ bool MySQL_Session::handler_again___status_CHANGING_CHARSET(int *_rc) {
 				ci = proxysql_find_charset_nr(atoi(mysql_variables->client_get_value(SQL_CHARACTER_SET)));
 				if (ci)	not_supported_collation = ci->name;
 
-				ci = proxysql_find_charset_nr(mysql_thread___default_charset);
+				ci = proxysql_find_charset_name(mysql_thread___default_variables[SQL_CHARACTER_SET]);
 				if (ci)	replace_collation = ci->name;
+				if (ci)	replace_collation_nr = ci->nr;
 
 				proxy_warning("Server doesn't support collation (%s) %s. Replacing it with the configured default (%d) %s. Client %s:%d\n",
 						mysql_variables->client_get_value(SQL_CHARACTER_SET), not_supported_collation, 
-						mysql_thread___default_charset, replace_collation, client_myds->addr.addr, client_myds->addr.port);
+						replace_collation_nr, replace_collation, client_myds->addr.addr, client_myds->addr.port);
 
-				ss.clear();
-				ss << mysql_thread___default_charset;
+				ss << replace_collation_nr;
 				mysql_variables->client_set_value(SQL_CHARACTER_SET, ss.str());
 				break;
 			case HANDLE_UNKNOWN_CHARSET__REPLACE_WITH_DEFAULT:
-				ss.clear();
-				ss << mysql_thread___default_charset;
+				ci = proxysql_find_charset_name(mysql_thread___default_variables[SQL_CHARACTER_SET]);
+				if (ci)	replace_collation_nr = ci->nr;
+
+				ss << replace_collation_nr;
 				mysql_variables->client_set_value(SQL_CHARACTER_SET, ss.str());
 				break;
 			default:
@@ -2599,9 +2602,12 @@ bool MySQL_Session::handler_again___status_CHANGING_CHARSET(int *_rc) {
 			int myerr=mysql_errno(myconn->mysql);
 			if (myerr >= 2000) {
 				if (myerr == 2019) {
-					proxy_error("Client trying to set a charset/collation (%u) not supported by backend (%s:%d). Changing it to %u\n", mysql_variables->client_get_value(SQL_CHARACTER_SET), myconn->parent->address, myconn->parent->port, mysql_thread___default_charset);
+					ci = proxysql_find_charset_name(mysql_thread___default_variables[SQL_CHARACTER_SET]);
+					if (ci)	replace_collation_nr = ci->nr;
+					proxy_error("Client trying to set a charset/collation (%u) not supported by backend (%s:%d). Changing it to %u\n", mysql_variables->client_get_value(SQL_CHARACTER_SET), myconn->parent->address, myconn->parent->port, replace_collation_nr);
+
 					ss.clear();
-					ss << mysql_thread___default_charset;
+					ss << replace_collation_nr;
 					mysql_variables->client_set_value(SQL_CHARACTER_SET, ss.str());
 				}
 				bool retry_conn=false;
@@ -5216,7 +5222,13 @@ bool MySQL_Session::handler___status_WAITING_CLIENT_DATA___STATE_SLEEP___MYSQL_C
 								return false;
 							}
 							if (mysql_variables->client_get_hash(idx) != var_value_int) {
-								mysql_variables->client_set_value(idx, value1.c_str());
+								const MARIADB_CHARSET_INFO *ci = NULL;
+								ci = proxysql_find_charset_name(value1.c_str());
+
+								std::stringstream ss;
+								ss << ci->nr;
+								mysql_variables->client_set_value(idx, ss.str().c_str());
+
 								proxy_debug(PROXY_DEBUG_MYSQL_COM, 5, "Changing connection %s to %s\n", var.c_str(), value1.c_str());
 							}
 							exit_after_SetParse = true;
